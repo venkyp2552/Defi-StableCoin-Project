@@ -66,6 +66,7 @@ contract DSCEngine is ReentrancyGuard {
     
     //// Events ////
     event CollateralDeposited(address indexed depositer, address indexed tokenCollatealAddrs,uint256 indexed collateralAmount);
+    event CollateralReddemed(address indexed depositer, address indexed tokenCollatealAddrs,uint256 indexed Amount);
 
     //// Modifiers ////
     modifier moreThanZero(uint256 amount) {
@@ -96,10 +97,13 @@ contract DSCEngine is ReentrancyGuard {
         i_dsc = DecentralizedStableCoin(dscAddress);
     }
 
-    function depositeCollateralAndMintDsc() external {}
+    function depositeCollateralAndMintDsc(address tokenCollateralAddress, uint256 collateralAmount,uint256 amountDSCtoMint) external {
+        depositeCollateral(tokenCollateralAddress,collateralAmount);
+        mintDsc(amountDSCtoMint);
+    }
 
     function depositeCollateral(address tokenCollateralAddress, uint256 collateralAmount)
-        external
+        public
         moreThanZero(collateralAmount)
         isTokenAllowed(tokenCollateralAddress)
         nonReentrant
@@ -113,17 +117,41 @@ contract DSCEngine is ReentrancyGuard {
         }
     }
 
-    function reedemCollateralForDsc() external {}
+    function reedemCollateralForDsc(address collateralTkenAddress,uint256 collateralAmount,uint256 amountDscToBurn) external {
+        reedemCollateral(collateralTkenAddress,collateralAmount);
+        burnDSc(amountDscToBurn);
+        //reedemCollateral Already checks HF
+    }
 
-    function burnDSc() external{}
+    //1.they must have HF more than 1 after collateral pulled
+    //2.what kind of collateral they want to withdraw we need crosscheck wich tokenaddress they want 
+    function reedemCollateral(address collateralTkenAddress,uint256 collateralAmount) public moreThanZero(collateralAmount) nonReentrant{ 
+        s_collateralDeposited[msg.sender][collateralTkenAddress]-=collateralAmount;
+        emit CollateralReddemed(msg.sender,collateralTkenAddress,collateralAmount);
+        bool success=IERC20(collateralTkenAddress).transfer(msg.sender,collateralAmount);
+        if(!success){
+            revert DSCEngine__TransactionFailed();
+        }
+        _revertIfHelathFactorIsBroken(msg.sender);
+    }
+
+    function burnDSc(uint256 amount) public moreThanZero(amount){
+        s_DSCMinted[msg.sender]-=amount;
+        bool success=i_dsc.transferFrom(msg.sender,address(this),amount);
+        if(!success){
+            revert DSCEngine__TransactionFailed();
+        }
+        i_dsc.burn(amount);
+        _revertIfHelathFactorIsBroken(msg.sender);
+    }
     /**
      * @notice follows CEI (Checks, Effects, Interactions)
      * @param amountDSCToMint The amount of DSC to mint
      * @notice they must have more collateral vlaue than the minimum threshold
      */
-    function mintDsc(uint256 amountDSCToMint) external moreThanZero(amountDSCToMint) nonReentrant{
+    function mintDsc(uint256 amountDSCToMint) public moreThanZero(amountDSCToMint) nonReentrant{
         s_DSCMinted[msg.sender]+=amountDSCToMint;
-        //1.if they mint too much more than their collateral value we should revert them back.abi
+        //1.if they mint too much more than their collateral value we should revert them back
         _revertIfHelathFactorIsBroken(msg.sender);
         bool minted=i_dsc.mint(msg.sender,amountDSCToMint);
         if(!minted){
