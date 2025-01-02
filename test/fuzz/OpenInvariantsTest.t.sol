@@ -28,11 +28,6 @@ contract OpenInvariantsTest is StdInvariant, Test {
         deployer = new DeployDSC();
         (dsc, dsce, config) = deployer.run();
         (,,weth, wbtc,) = config.activeNetwrokConfig();
-
-        // Log to check deployment
-        console.log("DSCEngine Address: ", address(dsce));
-        console.log("DecentralizedStableCoin Address: ", address(dsc));
-
         // Set the target contract for invariant testing
         targetContract(address(dsce)); // Ensure the contract is the DSCEngine contract
     }
@@ -46,11 +41,6 @@ contract OpenInvariantsTest is StdInvariant, Test {
 
         uint256 wethValue = dsce.getUsdValue(weth, totalWethDeposited);
         uint256 wbtcValue = dsce.getUsdValue(wbtc, totalBthDeposited);
-
-        console.log("weth Value: ", wethValue);
-        console.log("wbtc Value: ", wbtcValue);
-        console.log("Total Supply: ", totalSupply);
-
         // Ensure that the total value of collateral is greater than or equal to the total DSC supply
         assert(wethValue + wbtcValue >= totalSupply);
     }
