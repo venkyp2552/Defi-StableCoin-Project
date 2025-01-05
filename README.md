@@ -6,3 +6,5 @@
 3.collateral : Exogenous(Crypto)
     1.wETH(wrapped)
     2.wBTC
+
+1.Some proper oracle usage
